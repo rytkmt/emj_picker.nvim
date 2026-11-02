@@ -1,0 +1,267 @@
+*emj_picker.txt*        A floating-window emoji & Nerd Font picker for Neovim
+
+==============================================================================
+CONTENTS                                                   *emj_picker-contents*
+
+    1. Introduction ....................... |emj_picker-introduction|
+    2. Requirements ....................... |emj_picker-requirements|
+    3. Interface .......................... |emj_picker-interface|
+         Functions ........................ |emj_picker-functions|
+         Commands ......................... |emj_picker-commands|
+    4. Mappings ........................... |emj_picker-mappings|
+    5. Settings ........................... |emj_picker-settings|
+    6. Fuzzy search (telescope) ........... |emj_picker-telescope|
+    7. Nerd Font picker ................... |emj_picker-nerd|
+    8. Data ............................... |emj_picker-data|
+    9. FAQ ................................ |emj_picker-faq|
+
+==============================================================================
+1. INTRODUCTION                                        *emj_picker-introduction*
+
+A floating-window emoji picker. Scan a grid of emojis visually, grouped by
+category, and insert the one you want — either the emoji itself (❤️) or its
+markdown shortcode (:red_heart:), toggled live inside the picker.
+
+A second picker, |:EmjPickerNerd|, reuses the same grid over the Nerd Font
+glyph set. See |emj_picker-nerd|.
+
+==============================================================================
+2. REQUIREMENTS                                        *emj_picker-requirements*
+
+- Neovim >= 0.9 (floating-window 'title' and winbar).
+- A Nerd Font patched font, only for |:EmjPickerNerd| (glyphs render as tofu
+  without one). The emoji picker does not need it.
+- telescope.nvim (optional), only for fuzzy search (|emj_picker-telescope|).
+
+==============================================================================
+3. INTERFACE                                              *emj_picker-interface*
+
+------------------------------------------------------------------------------
+FUNCTIONS                                                 *emj_picker-functions*
+
+emj_picker.setup([{opts}])                                  *emj_picker.setup()*
+    Set up the plugin. Optional — without it the defaults are used. Pass only
+    the keys you want to change; omitted keys keep their default. Calling it
+    with `{}` is equivalent to passing the full default table.
+    See |emj_picker-settings|.
+
+emj_picker.pick()                                            *emj_picker.pick()*
+    Open the emoji picker (same as |:EmjPicker|).
+
+emj_picker.pick_nerd()                                  *emj_picker.pick_nerd()*
+    Open the Nerd Font picker (same as |:EmjPickerNerd|).
+
+------------------------------------------------------------------------------
+COMMANDS                                                   *emj_picker-commands*
+
+:EmjPicker                                                          *:EmjPicker*
+    Open the emoji grid picker.
+
+:EmjPickerNerd                                                  *:EmjPickerNerd*
+    Open the Nerd Font glyph grid picker. See |emj_picker-nerd|.
+
+Note: the plugin binds NO global key to open the picker. Use the commands
+above, the |emj_picker-functions|, or map your own key (see |emj_picker-faq|).
+
+==============================================================================
+4. MAPPINGS                                                *emj_picker-mappings*
+
+Keys active INSIDE the picker window. They are buffer-local, so they do not
+clash with your global mappings while the picker is open. All are configurable
+via the `keymaps` setting (|emj_picker-settings|).
+
+    h j k l     Move around the grid
+    w  e        Move right (same as l)
+    b           Move left (same as h)
+    J  K        Move down / up by `scroll_step` rows (default 3)
+    H  L        Jump to the first / last cell on the current row
+    gg  G       Jump to first / last entry
+    <CR>        Insert the selected entry (in the current mode)
+    <Tab>       Toggle insert mode (emoji <-> :shortcode:)
+                No-op in the Nerd Font picker; it has one insert form.
+    ]  [        Next / previous category
+    /           Fuzzy search via telescope (|emj_picker-telescope|)
+    <Esc>  q    Close the picker
+
+The status line is shown in the window's winbar (pinned to the top, so it
+stays visible while the grid scrolls): it shows the current category and
+position (`name (n/9)`) and the selected entry's shortcode. The current insert
+mode is shown in the window title on the border, e.g. `Emoji Picker — [emoji]`.
+
+==============================================================================
+5. SETTINGS                                                *emj_picker-settings*
+
+Set with |emj_picker.setup()|. Calling `setup({})` (or not calling it) is
+exactly equivalent to passing the "Default value" table below — that block IS
+the effective configuration out of the box. Override only the keys you want;
+omitted keys keep their default.
+
+Default value: >lua
+    {
+      window = {
+        width = 0.6,          -- integer = absolute columns; float 0..1 = ratio
+        height = 0.7,         -- integer = absolute rows;    float 0..1 = ratio
+        border = "rounded",   -- any value accepted by nvim_open_win 'border'
+        title = " Emoji Picker ",
+        title_pos = "center", -- "left" | "center" | "right"
+      },
+      keymaps = {
+        close = { "<Esc>", "q" },
+        confirm = { "<CR>" },
+        toggle_mode = { "<Tab>" },
+        next_category = { "]" },
+        prev_category = { "[" },
+        nav_left = { "h", "b" },
+        nav_right = { "l", "w", "e" },
+        nav_up = { "k" },
+        nav_down = { "j" },
+        page_down = { "J" },
+        page_up = { "K" },
+        line_home = { "H" },
+        line_end = { "L" },
+        search = { "/" },
+      },
+      default_insert_mode = "emoji", -- "emoji" | "shortcode"
+      cell_width = 4,
+      scroll_step = 3,
+    }
+<
+window.width                                      *emj_picker-settings-window.width*
+    Picker width. Integer (>=1) = absolute columns; float 0..1 = ratio of the
+    editor width. Default: `0.6`
+
+window.height                                    *emj_picker-settings-window.height*
+    Picker height. Integer = absolute rows; float 0..1 = ratio of editor
+    height. Default: `0.7`
+
+window.border                                    *emj_picker-settings-window.border*
+    Any value accepted by |nvim_open_win()| `border`. Default: `"rounded"`
+
+window.title                                      *emj_picker-settings-window.title*
+    Base title on the border; the insert mode is appended automatically, e.g.
+    `Emoji Picker — [emoji]`. Default: `" Emoji Picker "`
+
+window.title_pos                              *emj_picker-settings-window.title_pos*
+    `"left"`, `"center"` or `"right"`. Default: `"center"`
+
+keymaps                                               *emj_picker-settings-keymaps*
+    Keys used INSIDE the picker window (not a key to open it). Each entry is a
+    string or a list of strings. See |emj_picker-mappings| for what each
+    action does. Defaults:
+
+        close         `{ "<Esc>", "q" }`
+        confirm       `{ "<CR>" }`
+        toggle_mode   `{ "<Tab>" }`
+        next_category `{ "]" }`
+        prev_category `{ "[" }`
+        nav_left      `{ "h", "b" }`
+        nav_right     `{ "l", "w", "e" }`
+        nav_up        `{ "k" }`
+        nav_down      `{ "j" }`
+        page_down     `{ "J" }`
+        page_up       `{ "K" }`
+        line_home     `{ "H" }`
+        line_end      `{ "L" }`
+        search        `{ "/" }`
+
+    A keymap list is replaced per key when overridden (not merged into the
+    default list). Pass an empty list to drop a default key, e.g.
+    `nav_left = {}`.
+
+default_insert_mode                        *emj_picker-settings-default_insert_mode*
+    Insert mode the emoji picker starts in: `"emoji"` or `"shortcode"`. The
+    chosen mode is remembered per picker across invocations. Default: `"emoji"`
+
+cell_width                                        *emj_picker-settings-cell_width*
+    Display columns reserved per grid cell (emoji picker; the Nerd Font picker
+    uses its own narrower width). Default: `4`
+
+scroll_step                                      *emj_picker-settings-scroll_step*
+    Rows moved by `page_down` / `page_up` (`J` / `K`). Default: `3`
+
+Example (override only what you want): >lua
+    require("emj_picker").setup({
+      window = { width = 0.5, border = "double" },
+      default_insert_mode = "shortcode",
+      scroll_step = 5,
+      keymaps = {
+        nav_left = { "h" },
+        nav_right = { "l" },
+      },
+    })
+<
+==============================================================================
+6. FUZZY SEARCH (TELESCOPE)                               *emj_picker-telescope*
+
+With telescope.nvim installed, fuzzy-search the whole dataset instead of
+scanning the grid. Press `/` inside the grid to open telescope in the current
+insert mode; the selection is inserted back into the window you started from.
+Or run it directly:
+                                                                *:Telescope-emj*
+    :Telescope emj            insert the emoji character (default)
+    :Telescope emj emoji      insert the emoji character
+    :Telescope emj shortcode  insert the :shortcode: form
+    :Telescope emj nerd       insert a Nerd Font glyph
+
+Emoji search matches the shortcode, group and subgroup; Nerd Font search
+matches the glyph name. The extension registers lazily on first use, and `/`
+falls back to a notice if telescope is not installed.
+
+==============================================================================
+7. NERD FONT PICKER                                            *emj_picker-nerd*
+
+|:EmjPickerNerd| (or |emj_picker.pick_nerd()|) opens the same grid UI over the
+Nerd Font glyph set. It needs a Nerd Font patched font. Differences from the
+emoji picker:
+
+- Single insert form (the glyph itself), so <Tab> (toggle mode) is a no-op.
+- Categories are the icon sets (md = Material Design, fa = Font Awesome,
+  dev, cod, oct, weather, seti, linux, ...), ordered largest-first. The header
+  shows the full glyph name (e.g. md-account).
+- `/` opens telescope over the glyph set (`:Telescope emj nerd`).
+
+All other mappings (|emj_picker-mappings|) behave the same as the emoji grid.
+
+==============================================================================
+8. DATA                                                        *emj_picker-data*
+
+Emoji data (lua/emj_picker/data/emojis.lua) is generated from the official
+Unicode emoji-test.txt, preserving Unicode ordering. Skin-tone modifiers and
+ZWJ sequences are excluded (their width is terminal-dependent and breaks the
+grid): 1674 emojis across 9 groups. Regenerate: >
+    nvim --headless -l scripts/generate.lua
+<
+Nerd Font data (lua/emj_picker/data/nerdfonts.lua) is generated from the Nerd
+Fonts glyphnames.json: 10995 glyphs across 17 icon sets, largest-first.
+Regenerate: >
+    nvim --headless -l scripts/generate_nerd.lua
+<
+==============================================================================
+9. FAQ                                                          *emj_picker-faq*
+
+Q: What key opens the picker by default? ~
+A: None. The plugin binds no global key. Use |:EmjPicker| / |:EmjPickerNerd|,
+   or map your own, e.g.: >lua
+    vim.keymap.set("n", "<leader>ie", "<cmd>EmjPicker<cr>")
+    vim.keymap.set("n", "<leader>in", "<cmd>EmjPickerNerd<cr>")
+<
+Q: Is telescope.nvim required? ~
+A: No. The grid picker works without it. telescope is only used for fuzzy
+   search (`/` and `:Telescope emj`); without it, `/` just shows a notice.
+   See |emj_picker-telescope|.
+
+Q: Nerd Font glyphs show up as tofu (□). ~
+A: Your terminal font is not a Nerd Font patched font. Install one and set it
+   as your terminal/GUI font. The emoji picker is unaffected.
+
+Q: How do I change the keys used inside the picker? ~
+A: Via the `keymaps` setting, not a global mapping. See
+   |emj_picker-settings-keymaps|. To remove a default key, set it to `{}`.
+
+Q: Does the picker remember my insert mode? ~
+A: Yes, per picker, across invocations. The emoji and Nerd Font pickers
+   remember independently. The initial mode is `default_insert_mode`
+   (|emj_picker-settings-default_insert_mode|).
+
+==============================================================================
+ vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:
